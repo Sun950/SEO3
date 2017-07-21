@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+
+import readline, glob
+import corpus_builder as cb
+import mathset
+
+d_theme = {}
+l_global = []
+
+regulator = 5
+
+################################## TOOLS #############################################
+
+def complete(text, state):
+    return (glob.glob(text+'*')+[None])[state]
+
+############################### INITIAL SETUP ########################################
+
+# def selector(d_gram, theme, size):
+#     l_fgram = []
+#     for k, v in d_gram.items():
+#       if v >= size * regulator:
+#         test_correct = input('Gram \"' + k + '\" correct(Y/N)? ').upper()
+#         while not test_correct or (test_correct[0] != 'N' and test_correct[0] != 'Y'):
+#           print('Error: Invalid Input. ')
+#           test_correct = input('Gram \"' + k + '\" correct(Y/N)? ').upper()
+#           test_correct.split(' ')
+#         if test_correct[0] == 'Y':
+#           l_fgram.append(k)
+#           if k not in l_global:
+#             l_global.append(k)
+#     if len(l_global) == 0:
+#       print('Warning: this theme does not have any word. Retry with more text.')
+#       return 0
+#     d_theme[theme] = l_fgram
+    #print('gram associated to theme ' + theme + ':')
+    #for data in l_fgram:
+    #  print(data)
+
+def selector(d_gram, theme):
+    l_gram = []
+    for k, v in d_gram.items():
+      if v >= regulator:
+        l_gram.append(k)
+    return l_gram
+
+def merge_list(list1, list2):
+    for elem in list2:
+      if elem not in list1:
+        list1.append(elem)
+    return list1
+
+def ucheck(l_gram):
+    l_fgram = []
+    for item in l_gram:
+      test_correct = input('Gram \"' + item + '\" correct(Y/N)? ').upper()
+      while not test_correct or (test_correct[0] != 'N' and test_correct[0] != 'Y'):
+        print('Error: Invalid Input. ')
+        test_correct = input('Gram \"' + item + '\" correct(Y/N)? ').upper()
+        test_correct.split(' ')
+      if test_correct[0] == 'Y':
+        l_fgram.append(item)
+    return l_fgram
+
+def txt_association(theme):
+    global l_global
+    print('theme selected: ' + theme)
+    readline.set_completer_delims(' \t\n;')
+    readline.parse_and_bind("tab: complete")
+    readline.set_completer(complete)
+    b_text = input('Enter texts to associated to this theme (separated by a space): ')
+    if not b_text:
+      print('Error: no text detected. Exiting')
+      exit(1)
+    texts = b_text.split(' ')
+    texts = list(filter(bool, texts))
+    d_gram = {} # dict for total n_gram
+    l_gram = [] # list of dict for ngram per text
+    for text in texts:
+      try:
+        print('text selected: ' + text)
+        curr_gram = cb.generate_ngram(text)
+        #l_gram.append(curr_gram) # l_gram for td*idf
+        #d_gram = cb.merge_gram(d_gram, curr_gram) # to uncomment if want t pass in n_mode
+        l_gram = merge_list(l_gram, selector(curr_gram, theme))
+      except IsADirectoryError:
+        print('File ' + text + ' is a directory. Skipping')
+      except FileNotFoundError:
+        print('File ' + text + ' does not exist. Skipping')
+    l_gram = ucheck(l_gram)
+    l_global = merge_list(l_global, l_gram)
+    d_theme[theme] = l_gram
+    #selector(d_gram, theme, len(texts)) # to uncomment if want t pass in n_mode
+
+
+def start():
+    print('Starting theming script')
+    cb.init_dic()
+    b_theme = input('Enter themes (separated by a space): ')
+    if not b_theme:
+      print('Error: no theme detected. Exiting')
+      exit(1);
+    themes = b_theme.split(' ')
+    themes = list(filter(bool, themes))
+    for theme in themes:
+      if not theme in d_theme:
+        txt_association(theme)
+
+############################### SHELL COMMAND ########################################
+
+def cmd_test(text):
+    print('execute test command')
+    curr_gram = cb.generate_ngram(text)
+    l_gram = []
+    min_dist = 2.0
+    domi_theme = ''
+    for k, v in curr_gram.items():
+        l_gram.append(k)
+    for k, v in d_theme.items():
+      distance = mathset.jaccard(l_gram, v, l_global)
+      print('Jaccard distance for \"' + k + '\": ' + str(distance))
+      if distance < min_dist:
+        min_dist = distance
+        domi_theme = k
+    print('Matching with theme ' + domi_theme)
+    if min_dist >= 1.0:
+      print('Warning: unprecise result. The result can unmatch to the text')
+
+def cmd_add(theme):
+    print('execute add command')
+    txt_association(theme)
+
+
+def cmd_help():
+    print('Current commands:')
+    print('    - add [theme]:       add a theme in the system')
+    print('    - test [text]:       try to find if the text is in a specific theme')
+    print('    - exit:              quit the program')
+
+def shell_exec():
+    u_input = input('Enter a command (help for assist): ')
+    if not u_input:
+      return 1
+    else:
+      a_input = u_input.split(' ')
+
+    if a_input[0] == 'add' and len(a_input) == 2:
+      cmd_add(a_input[1])
+    elif a_input[0] == 'test' and len(a_input) == 2:
+      cmd_test(a_input[1])
+    elif a_input[0] == 'exit':
+      return 0
+    elif a_input[0] == 'help':
+      cmd_help()
+    else:
+      print('Invalid command')
+    return 1
+
+################################## MAIN LOOP #########################################
+
+def main():
+    start()
+    shell_value = shell_exec()
+    while(shell_value != 0):
+      shell_value = shell_exec()
+
+main()
