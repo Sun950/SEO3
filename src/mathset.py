@@ -12,6 +12,5 @@ def jaccard(dataset1, dataset2, g_dataset):
         m01 += 1.0
       if value not in dataset1 and value not in dataset2:
         m00 += 1.0
-    #print('m00: ' + str(m00) + ' m11: ' + str(m11) + ' m01: ' + str(m01) + ' m10: ' + str(m10))
     j = (m11) / (m11 + m10 + m01)
     return 1 - j
